@@ -1,6 +1,6 @@
 # %% HEADER
 # Get explain xkcd data
-# TODO: Put stuff in a database
+# TODO: Code some general inspections
 
 # %% IMPORTS
 from xkcd import get_explain_xkcd
@@ -31,12 +31,9 @@ for xkcd_id in tqdm(xkcd_ids, desc='Retrieving and storing xkcd data...'):
     # Don't hammer the server (too much)
     sleep(1)  
     
-# %%
+# %% CHECK IT OUT
+# Get tables and inspect them
 xkcd_properties = pd.DataFrame(db_utils.get_xkcd_properties(db_path))
-xkcd_properties
-
-# %%
 xkcd_explanations = pd.DataFrame(db_utils.get_xkcd_explained(db_path))
-xkcd_explanations
 
 # %%
