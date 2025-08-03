@@ -4,6 +4,11 @@
 
 # %% IMPORTS
 import sqlite3
+from collections import namedtuple
+
+# %% CLASSES
+XkcdProperty = namedtuple('XkcdProperty', ['xkcd_id', 'title', 'date', 'title_text'])
+XkcdExplanation = namedtuple('XkcdExplanation', ['xkcd_id', 'heading', 'tag_id', 'text'])
 
 # %% FUNCTIONS
 def clean_inputs(text: str) -> str:
@@ -109,11 +114,6 @@ def insert_xkcd_explained_into_db(
     # Insert each text one by one
     for heading, tags in xkcd_explained['body'].items():
         for tag_id, text in tags.items():
-            # print(xkcd_id)
-            # print(heading)
-            # print(tag_id)
-            # print(clean_inputs(text))
-            # print()
             conn.execute(f"""
                 INSERT OR IGNORE INTO XKCD_EXPLAINED 
                 (
@@ -140,7 +140,8 @@ def get_xkcd_properties(db_path: str) -> list:
     cursor.execute("""
         SELECT * FROM XKCD_PROPERTIES
         ;""")
-    result = [row for row in cursor.fetchall()]
+    # Return as a named tuple
+    result = [XkcdProperty(*row) for row in cursor.fetchall()]
     conn.commit()
     conn.close()
     return result
@@ -151,11 +152,11 @@ def get_xkcd_explained(db_path: str) -> list:
     cursor.execute("""
         SELECT * FROM XKCD_EXPLAINED
         ;""")
-    result = [row for row in cursor.fetchall()]
+    result = [XkcdExplanation(*row) for row in cursor.fetchall()]
     conn.commit()
     conn.close()
     return result
-    
+
 # %% MAIN
 # Initialise database
 # create_tables('../data/relevant_xkcd.db')
