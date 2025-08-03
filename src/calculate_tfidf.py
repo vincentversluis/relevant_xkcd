@@ -20,11 +20,17 @@ from nltk.stem import WordNetLemmatizer
 
 # %% INPUTS
 db_path = '../data/relevant_xkcd.db'
+n_gram_max_length = 3
 
-# %% SET UP MODELS AND CLASSES
+# %% INITIALISINGS
 nltk.download('punkt_tab')
 nltk.download('averaged_perceptron_tagger_eng')
 lemmatizer = WordNetLemmatizer()
+
+# Build split pattern with punctuation and word boundaries for stopwords
+STOPWORD_PATTERN = r'\b(?:' + '|'.join(map(re.escape, stopwords.words('english'))) + r')\b'
+PUNCTUATION_PATTERN = '|'.join(map(re.escape, string.punctuation))
+SPLIT_PATTERN = f'({STOPWORD_PATTERN})|({PUNCTUATION_PATTERN})'
 
 # %% GET DATA
 xkcd_properties = db_utils.get_xkcd_properties(db_path)
@@ -46,16 +52,17 @@ def get_up_to_ngrams(text: str, n: int=2, also_return_lower_case: bool=True) -> 
         text (str): The text to split into n-grams.
         n (int, optional): _description_. Defaults to 2.
     """
-    # Collect separator list (words + punctuation)
-    separators = stopwords.words('english') + list(string.punctuation) + [r'[^\S ]']
-    # Create a regex pattern (case-insensitive + word boundaries for whole words)
-    pattern = r'\b(?:' + '|'.join(map(re.escape, separators)) + r')\b|[!,:—]'
-    
-    # Split the text
-    fragments = re.split(pattern, text, flags=re.IGNORECASE)
-    
-    # Remove empty strings or leading/trailing spaces, then split on whitespace
-    fragments = [part.strip().split() for part in fragments if part.strip()]
+    # Split using regex (captures both stopwords and punctuation)
+    fragments = re.split(SPLIT_PATTERN, text, flags=re.IGNORECASE)
+    # Filter out empty strings and spaces
+    fragments = [
+        fragment 
+        for fragment 
+        in fragments 
+        if fragment 
+        and not re.fullmatch(SPLIT_PATTERN, fragment, flags=re.IGNORECASE)
+        ]
+    fragments = [fragment.strip().split() for fragment in fragments if fragment.strip()]
     
     # Collect all up to n grams
     up_to_ngrams = []
@@ -101,12 +108,12 @@ def lemmatise_sentence(sentence):
     
     return lemmatised_sentence
 
-# %%
-sentence = "I am Creating a cocktailer [cocktailing] menus party stockracings for a PARTY poopers hangout in New York City, which has a party place where party people party"
 sentence = "The children are running towards a better place."
+sentence = "Creating I am, no he'll yet creating fifth be, creating a, cocktailer, [cocktailing] menus party oven stockracings for a PARTY poopers hangout in New York City, which has a party place where party people party"
 
+# get_up_to_ngrams(sentence, n=3)
 lemmatised_sentence = lemmatise_sentence(sentence)
-print("lemmatised Sentence: ", lemmatised_sentence)
+get_up_to_ngrams(lemmatised_sentence, n=n_gram_max_length)
 
 # %%
 # Preprocess text
@@ -114,11 +121,10 @@ for xkcd in xkcd_properties:
     text = xkcd.title_text
     print(text)
     lemmatised_text = lemmatise_sentence(text)
-    print(lemmatised_text)
     up_to_ngrams = get_up_to_ngrams(lemmatised_text, n=3, also_return_lower_case=True)
     for ngram in up_to_ngrams:
         print(ngram)
-    print()
+    print(50*'-')
     
     
 # %%
