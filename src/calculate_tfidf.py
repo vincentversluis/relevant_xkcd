@@ -4,6 +4,9 @@
 # https://www.learndatasci.com/glossary/tf-idf-term-frequency-inverse-document-frequency/#:~:text=Term%20Frequency%3A%20TF%20of%20a,of%20words%20in%20the%20document.&text=Inverse%20Document%20Frequency%3A%20IDF%20of,corpus%20that%20contain%20the%20term.
 
 # TODO: Consider removing character names from strings
+# TODO: Check fill rate for each explanation, title and title text
+# TODO: Rework comments to nicer language
+
 
 # %% IMPORTS
 from nltk.corpus import stopwords
@@ -22,6 +25,9 @@ from nltk.stem import WordNetLemmatizer
 db_path = '../data/relevant_xkcd.db'
 n_gram_max_length = 3
 
+# Which headings to ignore for tf-idf calculation
+headings_ignore = ['Trivia']
+
 # %% INITIALISINGS
 nltk.download('punkt_tab')
 nltk.download('averaged_perceptron_tagger_eng')
@@ -33,8 +39,8 @@ PUNCTUATION_PATTERN = '|'.join(map(re.escape, string.punctuation))
 SPLIT_PATTERN = f'({STOPWORD_PATTERN})|({PUNCTUATION_PATTERN})'
 
 # %% GET DATA
-xkcd_properties = db_utils.get_xkcd_properties(db_path)
-xkcd_explanations = db_utils.get_xkcd_explained(db_path)
+xkcd_properties_df = db_utils.get_xkcd_properties(db_path)
+xkcd_explanations_df = db_utils.get_xkcd_explained(db_path)
 
 # %% FUNCTIONS
 def get_up_to_ngrams(text: str, n: int=2, also_return_lower_case: bool=True) -> list:
@@ -72,7 +78,7 @@ def get_up_to_ngrams(text: str, n: int=2, also_return_lower_case: bool=True) -> 
     
     # Optionally also return all lower case versions of the up to n grams
     if also_return_lower_case:
-        up_to_ngrams += [word.lower() for word in up_to_ngrams]
+        up_to_ngrams += [word.lower() for word in up_to_ngrams if word.lower() != word]
     
     return up_to_ngrams
 
@@ -89,7 +95,6 @@ def get_wordnet_pos(tag):
     else:
         return 'n' 
         
-@cache
 def lemmatise_sentence(sentence):
     # Prepare tokens and tagged tokens
     tokens = word_tokenize(sentence)
@@ -108,23 +113,53 @@ def lemmatise_sentence(sentence):
     
     return lemmatised_sentence
 
+@cache
+def get_preprocessed_tokens(text: str, n_gram_max_length: int=1, also_return_lower_case: bool=True) -> list:
+    lemmatised_text = lemmatise_sentence(text)
+    print(f"{lemmatised_text=}")
+    up_to_ngrams = get_up_to_ngrams(
+        lemmatised_text, 
+        n=n_gram_max_length, 
+        also_return_lower_case=also_return_lower_case)
+    return up_to_ngrams
+
 sentence = "The children are running towards a better place."
 sentence = "Creating I am, no he'll yet creating fifth be, creating a, cocktailer, [cocktailing] menus party oven stockracings for a PARTY poopers hangout in New York City, which has a party place where party people party"
-
-# get_up_to_ngrams(sentence, n=3)
-lemmatised_sentence = lemmatise_sentence(sentence)
-get_up_to_ngrams(lemmatised_sentence, n=n_gram_max_length)
+sentence = "Sn = tin"
+get_preprocessed_tokens(sentence, n_gram_max_length=3, also_return_lower_case=True)
 
 # %%
-# Preprocess text
-for xkcd in xkcd_properties:
-    text = xkcd.title_text
-    print(text)
-    lemmatised_text = lemmatise_sentence(text)
-    up_to_ngrams = get_up_to_ngrams(lemmatised_text, n=3, also_return_lower_case=True)
-    for ngram in up_to_ngrams:
-        print(ngram)
-    print(50*'-')
-    
-    
+# Calculate tf idf for titles
+# Calculate tf idf for title texts
+title_text = xkcd_properties_df[['xkcd_id', 'title_text']]
+title_text['title_text_preprocessed'] = title_text['title_text'].apply(
+    lambda x: ' '.join(
+        get_preprocessed_tokens(
+        x, 
+        n_gram_max_length=3, 
+        also_return_lower_case=False)))  # TODO: Test with True / False
+title_text
+
+# Calculate tf idf for transcripts
+# Calculate tf idf for other headings
+# %%
+from sklearn.feature_extraction.text import TfidfVectorizer
+
+# Fit TF-IDF
+vectorizer = TfidfVectorizer(lowercase=False)
+tfidf_matrix = vectorizer.fit_transform(title_text['title_text_preprocessed'])
+
+# Get feature names and document IDs
+terms = vectorizer.get_feature_names_out()
+doc_ids = title_text['xkcd_id'].values
+
+# Create a DataFrame from the sparse matrix
+tfidf_df = pd.DataFrame(tfidf_matrix.toarray(), index=doc_ids, columns=terms)
+tfidf_df = tfidf_df.reset_index().rename(columns={'index': 'xkcd_id'})
+
+# Melt the DataFrame to long format and only keep tf-idf scores
+title_text_tfidf_df = tfidf_df.melt(id_vars='xkcd_id', var_name='term', value_name='tfidf')
+title_text_tfidf_df = title_text_tfidf_df[title_text_tfidf_df['tfidf'] > 0]
+title_text_tfidf_df
+
 # %%

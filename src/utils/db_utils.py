@@ -5,6 +5,7 @@
 # %% IMPORTS
 import sqlite3
 from collections import namedtuple
+import pandas as pd
 
 # %% CLASSES
 XkcdProperty = namedtuple('XkcdProperty', ['xkcd_id', 'title', 'date', 'title_text'])
@@ -136,25 +137,12 @@ def insert_xkcd_explained_into_db(
             
 def get_xkcd_properties(db_path: str) -> list:
     conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT * FROM XKCD_PROPERTIES
-        ;""")
-    # Return as a named tuple
-    result = [XkcdProperty(*row) for row in cursor.fetchall()]
-    conn.commit()
-    conn.close()
+    result = pd.read_sql('SELECT * FROM XKCD_PROPERTIES', conn)
     return result
 
 def get_xkcd_explained(db_path: str) -> list:
     conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT * FROM XKCD_EXPLAINED
-        ;""")
-    result = [XkcdExplanation(*row) for row in cursor.fetchall()]
-    conn.commit()
-    conn.close()
+    result = pd.read_sql('SELECT * FROM XKCD_EXPLAINED', conn)
     return result
 
 # %% MAIN
