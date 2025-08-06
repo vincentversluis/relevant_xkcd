@@ -61,8 +61,6 @@ def create_tables(db_path: str) -> None:
             xkcd_id INTEGER,
             heading VARCHAR(256),
             token VARCHAR(512),
-            tf FLOAT,
-            idf FLOAT,
             tfidf FLOAT,
             PRIMARY KEY(xkcd_id, heading, token)
         );
@@ -134,7 +132,7 @@ def insert_xkcd_explained_into_db(
     # Commit and close
     conn.commit()
     conn.close()
-            
+
 def get_xkcd_properties(db_path: str) -> list:
     conn = sqlite3.connect(db_path)
     result = pd.read_sql('SELECT * FROM XKCD_PROPERTIES', conn)
@@ -147,6 +145,6 @@ def get_xkcd_explained(db_path: str) -> list:
 
 # %% MAIN
 # Initialise database
-# create_tables('../data/relevant_xkcd.db')
+# create_tables('../../data/relevant_xkcd.db')
 
 # %%

@@ -4,15 +4,14 @@
 # https://www.learndatasci.com/glossary/tf-idf-term-frequency-inverse-document-frequency/#:~:text=Term%20Frequency%3A%20TF%20of%20a,of%20words%20in%20the%20document.&text=Inverse%20Document%20Frequency%3A%20IDF%20of,corpus%20that%20contain%20the%20term.
 
 # TODO: Consider removing character names from strings
-# TODO: Check fill rate for each explanation, title and title text
 # TODO: Rework comments to nicer language
 # TODO: What if semantics return nothing? Then first try destopworded search in titles and such, then literal words
+# TODO: Consider a separate calculation for each length of ngram
 
 # %% IMPORTS
 from nltk.corpus import stopwords
 import re
 import string
-from tqdm import tqdm
 from functools import cache
 import pandas as pd
 from utils import db_utils
@@ -136,20 +135,48 @@ def get_tfidf(df: pd.DataFrame, doc_id_col: str, text_col: str) -> pd.DataFrame:
     vectorizer = TfidfVectorizer(lowercase=False)
     tfidf_matrix = vectorizer.fit_transform(df['terms'])
     
-    # Get feature names and document IDs
-    terms = vectorizer.get_feature_names_out()
-    doc_ids = df[doc_id_col].values
-    
     # Create a DataFrame from the sparse matrix
-    tfidf_df = pd.DataFrame(tfidf_matrix.toarray(), index=doc_ids, columns=terms)
-    tfidf_df = tfidf_df.reset_index().rename(columns={'index': doc_id_col})
-
+    tfidf_df = pd.DataFrame(tfidf_matrix.toarray(), columns=vectorizer.get_feature_names_out())
+    tfidf_df['xkcd_id'] = df['xkcd_id']
+    
     # Melt the DataFrame to long format and only keep tf-idf scores
     title_text_tfidf_df = tfidf_df.melt(id_vars=doc_id_col, var_name='terms', value_name='tfidf')
     title_text_tfidf_df = title_text_tfidf_df[title_text_tfidf_df['tfidf'] > 0]
     return title_text_tfidf_df
 
-# Get tfidf for title texts
-get_tfidf(xkcd_properties_df, 'xkcd_id', 'title_text')
-
 # %%
+# Get tfidf for titles
+tfidf_title_df = get_tfidf(xkcd_properties_df, 'xkcd_id', 'title')
+tfidf_title_df['heading'] = 'title'
+
+# Get tfidf for title texts
+tfidf_title_text_df = get_tfidf(xkcd_properties_df, 'xkcd_id', 'title_text')
+tfidf_title_text_df['heading'] = 'title_text'
+
+# Get tfidf for transcripts
+xkcd_transcripts_df = xkcd_explanations_df[xkcd_explanations_df['heading'] == 'Transcript']
+xkcd_transcripts_df = xkcd_transcripts_df.groupby(['xkcd_id', 'heading'], as_index=False).agg({
+    'text': lambda x: ' '.join(x)
+})
+tfidf_transcripts_df = get_tfidf(xkcd_transcripts_df, 'xkcd_id', 'text')
+tfidf_transcripts_df['heading'] = 'transcript'
+
+# Get tfidf for rest of explanation, minus headings to ignore
+xkcd_rest_of_explanations_df = xkcd_explanations_df[~xkcd_explanations_df['heading'].isin(headings_ignore)]
+xkcd_rest_of_explanations_df = xkcd_rest_of_explanations_df.groupby(['xkcd_id', 'heading'], as_index=False).agg({
+    'text': lambda x: ' '.join(x)
+})
+tfidf_rest_of_explanations_df = get_tfidf(xkcd_rest_of_explanations_df, 'xkcd_id', 'text')
+tfidf_rest_of_explanations_df['heading'] = 'explanation'
+
+tfidf_df = pd.concat([
+    tfidf_title_df,
+    tfidf_title_text_df,
+    tfidf_transcripts_df,
+    tfidf_rest_of_explanations_df
+])
+
+tfidf_df
+# %%
+# Add tf-idf scores to the database
+

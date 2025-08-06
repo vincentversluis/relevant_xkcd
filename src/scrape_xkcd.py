@@ -1,6 +1,7 @@
 # %% HEADER
 # Get explain xkcd data
 # TODO: Code some general inspections
+# TODO: Check fill rate for each explanation, title and title text
 
 # %% IMPORTS
 from xkcd import get_explain_xkcd
@@ -11,16 +12,14 @@ import pandas as pd
 
 # %% INPUTS
 xkcd_id_start = 1
-xkcd_id_end = 1756
+xkcd_id_end = 3124
 db_path = '../data/relevant_xkcd.db'
 
 # %% FUNCTIONS
 
 
 # %% MAIN
-xkcd_ids = [2011, 1488, 18, 1245, 29, 1048, 666]
-
-for xkcd_id in tqdm(xkcd_ids, desc='Retrieving and storing xkcd data...'):
+for xkcd_id in tqdm(range(xkcd_id_start, xkcd_id_end+1), desc='Retrieving and storing xkcd data...'):
     # Get xkcd explanation
     xkcd_explained = get_explain_xkcd(xkcd_id)
     
@@ -29,7 +28,7 @@ for xkcd_id in tqdm(xkcd_ids, desc='Retrieving and storing xkcd data...'):
     db_utils.insert_xkcd_explained_into_db(db_path, xkcd_explained)
     
     # Don't hammer the server (too much)
-    sleep(1)  
+    sleep(5)  
     
 # %% CHECK IT OUT
 # Get tables and inspect them
