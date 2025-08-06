@@ -6,7 +6,7 @@
 # TODO: Consider removing character names from strings
 # TODO: Check fill rate for each explanation, title and title text
 # TODO: Rework comments to nicer language
-
+# TODO: What if semantics return nothing? Then first try destopworded search in titles and such, then literal words
 
 # %% IMPORTS
 from nltk.corpus import stopwords
@@ -20,6 +20,7 @@ import nltk
 from nltk.tokenize import word_tokenize
 from nltk import pos_tag
 from nltk.stem import WordNetLemmatizer
+from sklearn.feature_extraction.text import TfidfVectorizer
 
 # %% INPUTS
 db_path = '../data/relevant_xkcd.db'
@@ -116,50 +117,39 @@ def lemmatise_sentence(sentence):
 @cache
 def get_preprocessed_tokens(text: str, n_gram_max_length: int=1, also_return_lower_case: bool=True) -> list:
     lemmatised_text = lemmatise_sentence(text)
-    print(f"{lemmatised_text=}")
     up_to_ngrams = get_up_to_ngrams(
         lemmatised_text, 
         n=n_gram_max_length, 
         also_return_lower_case=also_return_lower_case)
     return up_to_ngrams
 
-sentence = "The children are running towards a better place."
-sentence = "Creating I am, no he'll yet creating fifth be, creating a, cocktailer, [cocktailing] menus party oven stockracings for a PARTY poopers hangout in New York City, which has a party place where party people party"
-sentence = "Sn = tin"
-get_preprocessed_tokens(sentence, n_gram_max_length=3, also_return_lower_case=True)
+def get_tfidf(df: pd.DataFrame, doc_id_col: str, text_col: str) -> pd.DataFrame:
+    # Preprocess
+    df['terms'] = df[text_col].apply(
+        lambda x: ' '.join(
+            get_preprocessed_tokens(
+            x, 
+            n_gram_max_length=3, 
+            also_return_lower_case=False)))  # TODO: Test with True / False
+    
+    # Fit TF-IDF
+    vectorizer = TfidfVectorizer(lowercase=False)
+    tfidf_matrix = vectorizer.fit_transform(df['terms'])
+    
+    # Get feature names and document IDs
+    terms = vectorizer.get_feature_names_out()
+    doc_ids = df[doc_id_col].values
+    
+    # Create a DataFrame from the sparse matrix
+    tfidf_df = pd.DataFrame(tfidf_matrix.toarray(), index=doc_ids, columns=terms)
+    tfidf_df = tfidf_df.reset_index().rename(columns={'index': doc_id_col})
 
-# %%
-# Calculate tf idf for titles
-# Calculate tf idf for title texts
-title_text = xkcd_properties_df[['xkcd_id', 'title_text']]
-title_text['title_text_preprocessed'] = title_text['title_text'].apply(
-    lambda x: ' '.join(
-        get_preprocessed_tokens(
-        x, 
-        n_gram_max_length=3, 
-        also_return_lower_case=False)))  # TODO: Test with True / False
-title_text
+    # Melt the DataFrame to long format and only keep tf-idf scores
+    title_text_tfidf_df = tfidf_df.melt(id_vars=doc_id_col, var_name='terms', value_name='tfidf')
+    title_text_tfidf_df = title_text_tfidf_df[title_text_tfidf_df['tfidf'] > 0]
+    return title_text_tfidf_df
 
-# Calculate tf idf for transcripts
-# Calculate tf idf for other headings
-# %%
-from sklearn.feature_extraction.text import TfidfVectorizer
-
-# Fit TF-IDF
-vectorizer = TfidfVectorizer(lowercase=False)
-tfidf_matrix = vectorizer.fit_transform(title_text['title_text_preprocessed'])
-
-# Get feature names and document IDs
-terms = vectorizer.get_feature_names_out()
-doc_ids = title_text['xkcd_id'].values
-
-# Create a DataFrame from the sparse matrix
-tfidf_df = pd.DataFrame(tfidf_matrix.toarray(), index=doc_ids, columns=terms)
-tfidf_df = tfidf_df.reset_index().rename(columns={'index': 'xkcd_id'})
-
-# Melt the DataFrame to long format and only keep tf-idf scores
-title_text_tfidf_df = tfidf_df.melt(id_vars='xkcd_id', var_name='term', value_name='tfidf')
-title_text_tfidf_df = title_text_tfidf_df[title_text_tfidf_df['tfidf'] > 0]
-title_text_tfidf_df
+# Get tfidf for title texts
+get_tfidf(xkcd_properties_df, 'xkcd_id', 'title_text')
 
 # %%
