@@ -7,6 +7,8 @@
 # TODO: Rework comments to nicer language
 # TODO: What if semantics return nothing? Then first try destopworded search in titles and such, then literal words
 # TODO: Consider a separate calculation for each length of ngram
+# TODO: Strip upper case using NER
+# TODO: Build in extra step of removing punctuation and stopwords
 
 # %% IMPORTS
 from nltk.corpus import stopwords
@@ -20,6 +22,7 @@ from nltk.tokenize import word_tokenize
 from nltk import pos_tag
 from nltk.stem import WordNetLemmatizer
 from sklearn.feature_extraction.text import TfidfVectorizer
+from itertools import chain
 
 # %% INPUTS
 db_path = '../data/relevant_xkcd.db'
@@ -34,23 +37,32 @@ nltk.download('averaged_perceptron_tagger_eng')
 lemmatizer = WordNetLemmatizer()
 
 # Build split pattern with punctuation and word boundaries for stopwords
-STOPWORD_PATTERN = r'\b(?:' + '|'.join(map(re.escape, stopwords.words('english'))) + r')\b'
-PUNCTUATION_PATTERN = '|'.join(map(re.escape, string.punctuation))
-SPLIT_PATTERN = f'({STOPWORD_PATTERN})|({PUNCTUATION_PATTERN})'
+stopwords_pattern = r'\b(?:' + '|'.join(map(re.escape, stopwords.words('english'))) + r')\b'
+punctuation_pattern = '|'.join(map(re.escape, string.punctuation))
+split_pattern = f'({stopwords_pattern})|({punctuation_pattern})'
 
 # %% GET DATA
 xkcd_properties_df = db_utils.get_xkcd_properties(db_path)
 xkcd_explanations_df = db_utils.get_xkcd_explained(db_path)
 
 # %% FUNCTIONS
-def get_up_to_ngrams(text: str, n: int=2, also_return_lower_case: bool=True) -> list:
-    """Return a list of up-to-n-grams from the text. The returned list contains all
-    separate single words in the text, but also n-grams of the text, with size up
-    to n. (e.g. n=3 returns 1-grams, 2-grams, 3-grams). The n-grams of n>1 are composed
-    of the words not separated by stopwords and punctuation. For example, the text
-    "I have a cocktail, which is very nice" for n=2 would return all single words
-    and the 2-grams I_have and very_nice, but not cocktail_which, assuming stopwords
-    are "a" and "is".
+def split_text_by_regex(text: str, split_pattern: str) -> list:
+    # Split using regex (captures both stopwords and punctuation)
+    fragments = re.split(split_pattern, text, flags=re.IGNORECASE)
+    # Filter out empty strings and spaces
+    fragments = [
+        fragment 
+        for fragment 
+        in fragments 
+        if fragment 
+        and not re.fullmatch(split_pattern, fragment, flags=re.IGNORECASE)
+        ]
+    fragments = [fragment.strip() for fragment in fragments if fragment.strip()]
+    return fragments
+
+@cache
+def get_ngrams(text: str, n: int) -> list:
+    """Return a list of n-grams from the text. 
     
     This works for English text.
     
@@ -58,29 +70,30 @@ def get_up_to_ngrams(text: str, n: int=2, also_return_lower_case: bool=True) -> 
         text (str): The text to split into n-grams.
         n (int, optional): _description_. Defaults to 2.
     """
-    # Split using regex (captures both stopwords and punctuation)
-    fragments = re.split(SPLIT_PATTERN, text, flags=re.IGNORECASE)
-    # Filter out empty strings and spaces
-    fragments = [
-        fragment 
-        for fragment 
-        in fragments 
-        if fragment 
-        and not re.fullmatch(SPLIT_PATTERN, fragment, flags=re.IGNORECASE)
-        ]
-    fragments = [fragment.strip().split() for fragment in fragments if fragment.strip()]
-    
     # Collect all up to n grams
+    text_split = text.split()
+    if n > len(text_split):
+        return []
+    else:
+        ngrams = ['_'.join(text_split[j:j+n]) for j in range(len(text_split)+1-n)]
+    return ngrams
+
+@cache
+def get_up_to_ngrams(text: str, n: int):
+    """Gets all ngrams for size 1 up to n. This might not be preferable for working
+    with tf-idf.
+
+    Args:
+        text (str): _description_
+        n (int): _description_
+
+    Returns:
+        _type_: _description_
+    """    
     up_to_ngrams = []
-    for fragment in fragments:
-        for i in range(1, n+1):
-            up_to_ngrams += ['_'.join(fragment[j:j+i]) for j in range(len(fragment)+1-i)]
-    
-    # Optionally also return all lower case versions of the up to n grams
-    if also_return_lower_case:
-        up_to_ngrams += [word.lower() for word in up_to_ngrams if word.lower() != word]
-    
-    return up_to_ngrams
+    for n_gram_length in range(1, n_gram_max_length+1):
+        up_to_ngrams += [get_ngrams(fragment, n=n_gram_length) for fragment in split_text]
+    return list(chain(*up_to_ngrams))
 
 @cache
 def get_wordnet_pos(tag):
@@ -114,13 +127,20 @@ def lemmatise_sentence(sentence):
     return lemmatised_sentence
 
 @cache
-def get_preprocessed_tokens(text: str, n_gram_max_length: int=1, also_return_lower_case: bool=True) -> list:
-    lemmatised_text = lemmatise_sentence(text)
-    up_to_ngrams = get_up_to_ngrams(
-        lemmatised_text, 
-        n=n_gram_max_length, 
-        also_return_lower_case=also_return_lower_case)
-    return up_to_ngrams
+def get_preprocessed_tokens(text: str, n_gram_length: int=1) -> list:
+    text_lemmatised = lemmatise_sentence(text)
+    text_split = split_text_by_regex(text_lemmatised, split_pattern=split_pattern)
+    tokens = list(chain(*[get_ngrams(fragment, n=n_gram_length) for fragment in text_split]))
+    return tokens
+
+text = "You are Creating a cocktail kings menu partying stockrace for a PARTY pooper in New York City, which has a party place where party people party"
+for n_gram_length in range(1, n_gram_max_length+1):
+    print(f"n-gram length {n_gram_length}:")
+    tokens = get_preprocessed_tokens(text, n_gram_length=n_gram_length)
+    print(tokens)
+    print()
+
+# %%
 
 def get_tfidf(df: pd.DataFrame, doc_id_col: str, text_col: str) -> pd.DataFrame:
     # Preprocess
