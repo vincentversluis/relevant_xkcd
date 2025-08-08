@@ -42,6 +42,7 @@ def create_tables(db_path: str) -> None:
             title VARCHAR(256),
             date VARCHAR(256),
             title_text VARCHAR(1024),
+            modified_ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY(xkcd_id)
         );
     """)
@@ -52,6 +53,7 @@ def create_tables(db_path: str) -> None:
             heading VARCHAR(256),
             tag_id INTEGER,
             text VARCHAR(4096),
+            modified_ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY(xkcd_id, heading, tag_id)
         );
     """)
@@ -62,6 +64,7 @@ def create_tables(db_path: str) -> None:
             heading VARCHAR(256),
             token VARCHAR(512),
             tfidf FLOAT,
+            modified_ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY(xkcd_id, heading, token)
         );
     """)
@@ -132,7 +135,20 @@ def insert_xkcd_explained_into_db(
     # Commit and close
     conn.commit()
     conn.close()
+    
+def insert_tfidfs_into_db(
+    db_path: str, 
+    tfidf_df: pd.DataFrame) -> None:
+    """Insert calculated tf-idf scores into the database.
 
+    Args:
+        db_path (str): The path to the database
+        tfidfs (dict): A dict containing the properties of the xkcd in the 
+            `body` key, with each heading as a key and each tag as a list of texts
+    """    
+    conn = sqlite3.connect(db_path)
+    tfidf_df.to_sql('XKCD_EXPLAINED_TFIDF', conn, if_exists='append', index=False)
+    
 def get_xkcd_properties(db_path: str) -> list:
     conn = sqlite3.connect(db_path)
     result = pd.read_sql('SELECT * FROM XKCD_PROPERTIES', conn)
