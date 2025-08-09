@@ -1,6 +1,7 @@
 # %% HEADER
 # Some functions to interact with the database
 # TODO: Return getters as a list of named tuples
+# TODO: Docstrings
 
 # %% IMPORTS
 import sqlite3
@@ -157,6 +158,11 @@ def get_xkcd_properties(db_path: str) -> list:
 def get_xkcd_explained(db_path: str) -> list:
     conn = sqlite3.connect(db_path)
     result = pd.read_sql('SELECT * FROM XKCD_EXPLAINED', conn)
+    return result
+
+def get_scraped_xkcd_ids(db_path: str) -> list:
+    conn = sqlite3.connect(db_path)
+    result = pd.read_sql('SELECT DISTINCT xkcd_id FROM XKCD_PROPERTIES', conn)['xkcd_id'].to_list()
     return result
 
 # %% MAIN
