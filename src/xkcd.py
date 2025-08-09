@@ -6,6 +6,7 @@ import requests
 from bs4 import BeautifulSoup
 import re
 import arrow
+from dateutil import parser
 
 # %% FUNCTIONS
 def get_explain_xkcd(xkcd_id: int) -> dict:
@@ -32,7 +33,9 @@ def get_explain_xkcd(xkcd_id: int) -> dict:
     pattern = rf'#{xkcd_id} \((?P<date>.*)\)'
     date_button_text_re = re.search(pattern, date_button_text)
     date = date_button_text_re.group('date')
-    date = arrow.get(date, 'MMMM D, YYYY').format('YYYY-MM-DD')
+    date = parser.parse(date)
+    # date = arrow.get(date, 'MMMM D, YYYY').format('YYYY-MM-DD')
+    date = arrow.get(date).format('YYYY-MM-DD')
 
     # Find title text, navigate to actual text and extract
     title_text_ele = soup.find(attrs={"title": "Title text"})
