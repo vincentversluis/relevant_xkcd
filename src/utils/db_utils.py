@@ -9,8 +9,11 @@ from collections import namedtuple
 import pandas as pd
 
 # %% CLASSES
-XkcdProperty = namedtuple('XkcdProperty', ['xkcd_id', 'title', 'date', 'title_text'])
-XkcdExplanation = namedtuple('XkcdExplanation', ['xkcd_id', 'heading', 'tag_id', 'text'])
+XkcdProperty = namedtuple("XkcdProperty", ["xkcd_id", "title", "date", "title_text"])
+XkcdExplanation = namedtuple(
+    "XkcdExplanation", ["xkcd_id", "heading", "tag_id", "text"]
+)
+
 
 # %% FUNCTIONS
 def clean_inputs(text: str) -> str:
@@ -25,6 +28,7 @@ def clean_inputs(text: str) -> str:
     text = text.replace('"', "'")
     return text
 
+
 def create_tables(db_path: str) -> None:
     """Initialise database tables:
     - XKCD_PROPERTIES: General properties of each xkcd
@@ -33,9 +37,9 @@ def create_tables(db_path: str) -> None:
 
     Args:
         db_path (str): path to the database
-    """    
+    """
     conn = sqlite3.connect(db_path)
-    
+
     # Initialise tables
     conn.execute("""
         CREATE TABLE XKCD_PROPERTIES (
@@ -47,7 +51,7 @@ def create_tables(db_path: str) -> None:
             PRIMARY KEY(xkcd_id)
         );
     """)
-    
+
     conn.execute("""
         CREATE TABLE XKCD_EXPLAINED (
             xkcd_id INTEGER,
@@ -58,7 +62,7 @@ def create_tables(db_path: str) -> None:
             PRIMARY KEY(xkcd_id, heading, tag_id)
         );
     """)
-    
+
     conn.execute("""
         CREATE TABLE XKCD_EXPLAINED_TFIDF (
             xkcd_id INTEGER,
@@ -69,15 +73,14 @@ def create_tables(db_path: str) -> None:
             PRIMARY KEY(xkcd_id, heading, token)
         );
     """)
-    
-def insert_xkcd_properties_into_db(
-    db_path: str, 
-    xkcd_properties: dict) -> None:
+
+
+def insert_xkcd_properties_into_db(db_path: str, xkcd_properties: dict) -> None:
     """Insert the properties of an xkcd into the database.
 
     Args:
         db_path (str): The path to the database
-        properties (dict): A dict containing the properties of the xkcd in the `xkcd_id`, 
+        properties (dict): A dict containing the properties of the xkcd in the `xkcd_id`,
             `title`, `date` and `title_text` keys
     """
     conn = sqlite3.connect(db_path)
@@ -91,31 +94,30 @@ def insert_xkcd_properties_into_db(
         ) 
         VALUES 
         (
-                {xkcd_properties['xkcd_id']}
-            ,   "{clean_inputs(xkcd_properties['title'])}"
-            ,   "{xkcd_properties['date']}"
-            ,   "{clean_inputs(xkcd_properties['title_text'])}"
+                {xkcd_properties["xkcd_id"]}
+            ,   "{clean_inputs(xkcd_properties["title"])}"
+            ,   "{xkcd_properties["date"]}"
+            ,   "{clean_inputs(xkcd_properties["title_text"])}"
         )
         """)
     # Commit and close
     conn.commit()
     conn.close()
-    
-def insert_xkcd_explained_into_db(
-    db_path: str, 
-    xkcd_explained: dict) -> None:
+
+
+def insert_xkcd_explained_into_db(db_path: str, xkcd_explained: dict) -> None:
     """Insert the explanation of an xkcd into the database.
 
     Args:
         db_path (str): The path to the database
-        xkcd_explained (dict): A dict containing the properties of the xkcd in the 
+        xkcd_explained (dict): A dict containing the properties of the xkcd in the
             `body` key, with each heading as a key and each tag as a list of texts
     """
-    xkcd_id = xkcd_explained['xkcd_id']
-    
+    xkcd_id = xkcd_explained["xkcd_id"]
+
     conn = sqlite3.connect(db_path)
     # Insert each text one by one
-    for heading, tags in xkcd_explained['body'].items():
+    for heading, tags in xkcd_explained["body"].items():
         for tag_id, text in tags.items():
             conn.execute(f"""
                 INSERT OR IGNORE INTO XKCD_EXPLAINED 
@@ -136,34 +138,39 @@ def insert_xkcd_explained_into_db(
     # Commit and close
     conn.commit()
     conn.close()
-    
-def insert_tfidfs_into_db(
-    db_path: str, 
-    tfidf_df: pd.DataFrame) -> None:
+
+
+def insert_tfidfs_into_db(db_path: str, tfidf_df: pd.DataFrame) -> None:
     """Insert calculated tf-idf scores into the database.
 
     Args:
         db_path (str): The path to the database
-        tfidfs (dict): A dict containing the properties of the xkcd in the 
+        tfidfs (dict): A dict containing the properties of the xkcd in the
             `body` key, with each heading as a key and each tag as a list of texts
-    """    
+    """
     conn = sqlite3.connect(db_path)
-    tfidf_df.to_sql('XKCD_EXPLAINED_TFIDF', conn, if_exists='append', index=False)
-    
+    tfidf_df.to_sql("XKCD_EXPLAINED_TFIDF", conn, if_exists="append", index=False)
+
+
 def get_xkcd_properties(db_path: str) -> list:
     conn = sqlite3.connect(db_path)
-    result = pd.read_sql('SELECT * FROM XKCD_PROPERTIES', conn)
+    result = pd.read_sql("SELECT * FROM XKCD_PROPERTIES", conn)
     return result
+
 
 def get_xkcd_explained(db_path: str) -> list:
     conn = sqlite3.connect(db_path)
-    result = pd.read_sql('SELECT * FROM XKCD_EXPLAINED', conn)
+    result = pd.read_sql("SELECT * FROM XKCD_EXPLAINED", conn)
     return result
+
 
 def get_scraped_xkcd_ids(db_path: str) -> list:
     conn = sqlite3.connect(db_path)
-    result = pd.read_sql('SELECT DISTINCT xkcd_id FROM XKCD_PROPERTIES', conn)['xkcd_id'].to_list()
+    result = pd.read_sql("SELECT DISTINCT xkcd_id FROM XKCD_PROPERTIES", conn)[
+        "xkcd_id"
+    ].to_list()
     return result
+
 
 # %% MAIN
 # Initialise database

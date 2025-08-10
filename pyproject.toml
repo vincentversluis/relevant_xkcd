@@ -1,0 +1,21 @@
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+preview = true
+select = ["E", "F", "I", "B", "UP", "C90", "N", "D", "PL", "RUF"]
+ignore = ["D203", "D213"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+docstring-code-format = true
+docstring-code-line-length = 88
+
+[tool.ruff.lint.isort]
+known-first-party = ["your_package_name"]
+combine-as-imports = true
+force-sort-within-sections = true
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
