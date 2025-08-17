@@ -6,37 +6,30 @@
 # TODO: Consider removing character names from strings
 # TODO: Rework comments to nicer language
 # TODO: What if semantics return nothing? Then first try destopworded search in titles and such, then literal words
-# TODO: Consider a separate calculation for each length of ngram
 # TODO: Strip upper case using NER
-# TODO: Build in extra step of removing punctuation and stopwords
 # TODO: Docstrings
-# TODO: Titles Are In This Kind Of Illegible Format
+# TODO: Titles Are In This Kind Of Illegible Format - might want to prepreprocess this
 
 # %% IMPORTS
 import re
-import string
 
 from nltk.corpus import stopwords
 import pandas as pd
 from tqdm import tqdm
 
 from utils import db_utils
-import xkcd_tfidfing
+from xkcd_tfidfing import get_tfidf
 
 # %% INPUTS
 db_path = "../data/relevant_xkcd.db"
 n_gram_max_length = 3
 
-# Which headings to ignore for tf-idf calculation
-headings_ignore = ["Trivia"]
-
 # Build split pattern with punctuation and word boundaries for stopwords
 stopwords_pattern = (
     r"\b(?:" + "|".join(map(re.escape, stopwords.words("english"))) + r")\b"
 )
-punctuation_pattern = r'[^\p{L}\p{M}\p{N}\- ]+'
+punctuation_pattern = r'[^\p{L}\p{M}\p{N} ]+'
 split_pattern = f"({stopwords_pattern})|({punctuation_pattern})"
-
 
 # %% FUNCTIONS
 
@@ -45,79 +38,77 @@ split_pattern = f"({stopwords_pattern})|({punctuation_pattern})"
 xkcd_properties_df = db_utils.get_xkcd_properties(db_path)
 xkcd_explanations_df = db_utils.get_xkcd_explained(db_path)
 
+
 # %% CALCULATE TFIDFS AND ADD TO DATABASE
 for n_gram_length in tqdm(
     range(1, n_gram_max_length + 1), desc="Calculating tf-idf scores..."
 ):
-    # Get tfidf for titles
-    tfidf_title_df = xkcd_tfidfing.get_tfidf(
-        xkcd_properties_df, 
-        "xkcd_id", 
-        "title", 
-        n_gram_length=n_gram_length,
-        split_pattern=split_pattern
-    )
-    tfidf_title_df["heading"] = "title"
-    print(tfidf_title_df.head())
-    db_utils.insert_tfidfs_into_db(db_path, tfidf_title_df)
-    
-    # Get tfidf for title texts
-    tfidf_title_text_df = xkcd_tfidfing.get_tfidf(
-        xkcd_properties_df, 
-        "xkcd_id", 
-        "title_text", 
-        n_gram_length=n_gram_length,
-        split_pattern=split_pattern
-    )
-    tfidf_title_text_df["heading"] = "title_text"
-    print(tfidf_title_text_df.head())
-    db_utils.insert_tfidfs_into_db(db_path, tfidf_title_text_df)
+    # Titles
+    df = xkcd_properties_df
+    text_col = "title"
+    tfidf_df = get_tfidf(
+        df, 
+        doc_id_col="xkcd_id", 
+        text_col=text_col, 
+        n_gram_length=n_gram_length, 
+        split_pattern=split_pattern)
+    tfidf_df['heading'] = "title"
+    print(f"\nFound {len(tfidf_df)} tf-idf scores for titles with n_gram_length {n_gram_length}")
+    print(tfidf_df.head())
+    db_utils.insert_tfidfs_into_db(db_path, tfidf_df)
 
-    # Get tfidf for transcripts
-    xkcd_transcripts_df = xkcd_explanations_df[
+    #  Title texts
+    df = xkcd_properties_df
+    text_col = "title_text"
+    tfidf_df = get_tfidf(
+        df, 
+        doc_id_col="xkcd_id", 
+        text_col=text_col, 
+        n_gram_length=n_gram_length, 
+        split_pattern=split_pattern)
+    tfidf_df['heading'] = "title_text"
+    print(f"\nFound {len(tfidf_df)} tf-idf scores for title text with n_gram_length {n_gram_length}")
+    print(tfidf_df.head())
+    db_utils.insert_tfidfs_into_db(db_path, tfidf_df)
+
+    # Transcripts
+    df = xkcd_explanations_df[
         xkcd_explanations_df["heading"] == "Transcript"
     ]
-    xkcd_transcripts_df = xkcd_transcripts_df.groupby(
-        ["xkcd_id", "heading"], as_index=False
-    ).agg({"text": " ".join})
-    tfidf_transcripts_df = xkcd_tfidfing.get_tfidf(
-        xkcd_transcripts_df, 
-        "xkcd_id", 
-        "text", 
-        n_gram_length=n_gram_length,
-        split_pattern=split_pattern
-    )
-    tfidf_transcripts_df["heading"] = "transcript"
-    print(tfidf_transcripts_df.head())
-    db_utils.insert_tfidfs_into_db(db_path, tfidf_transcripts_df)
+    text_col = "text"
+    tfidf_df = get_tfidf(
+        df, 
+        doc_id_col="xkcd_id", 
+        text_col=text_col, 
+        n_gram_length=n_gram_length, 
+        split_pattern=split_pattern)
+    tfidf_df['heading'] = "transcript"
+    tfidf_df = tfidf_df.drop_duplicates(subset=['xkcd_id', 'token', 'tfidf'], keep=False)
+    print(f"\nFound {len(tfidf_df)} tf-idf scores for transcripts with n_gram_length {n_gram_length}")
+    print(tfidf_df.head())
+    db_utils.insert_tfidfs_into_db(db_path, tfidf_df)
 
-    # Get tfidf for rest of explanation, minus headings to ignore
-    xkcd_rest_of_explanations_df = xkcd_explanations_df[
-        ~xkcd_explanations_df["heading"].isin([headings_ignore, "Transcript"])
+    # Explanation
+    df = xkcd_explanations_df[
+        xkcd_explanations_df["heading"] == "Explanation"
     ]
-    xkcd_rest_of_explanations_df = xkcd_rest_of_explanations_df.groupby(
-        ["xkcd_id"], as_index=False
-    ).agg({"text": " ".join})
-    tfidf_rest_of_explanations_df = xkcd_tfidfing.get_tfidf(
-        xkcd_rest_of_explanations_df, 
-        "xkcd_id", 
-        "text", 
-        n_gram_length=n_gram_length,
-        split_pattern=split_pattern
-    )
-    print(tfidf_rest_of_explanations_df.head())
-    db_utils.insert_tfidfs_into_db(db_path, tfidf_rest_of_explanations_df)
+    text_col = "text"
+    tfidf_df = get_tfidf(
+        df, 
+        doc_id_col="xkcd_id", 
+        text_col=text_col, 
+        n_gram_length=n_gram_length, 
+        split_pattern=split_pattern)
+    tfidf_df['heading'] = "explanation"
+    tfidf_df = tfidf_df.drop_duplicates(subset=['xkcd_id', 'token', 'tfidf'], keep=False)
+    print(f"\nFound {len(tfidf_df)} tf-idf scores for rest of explanation with n_gram_length {n_gram_length}")
+    print(tfidf_df.head())
+    db_utils.insert_tfidfs_into_db(db_path, tfidf_df)
 
-    # Report on tfidfs
-    print(f"For n_gram_length = {n_gram_length}:")
-    print(f"{len(tfidf_title_df)=}")
-    print(f"{len(tfidf_title_text_df)=}")
-    print(f"{len(tfidf_transcripts_df)=}")
-    print(f"{len(tfidf_rest_of_explanations_df)=}")
-    print()
 
 # %% CHECK OUT THE RESULTS
-tfidf_title_df
+tfidf_df = tfidf_df.drop_duplicates(subset=['xkcd_id', 'token', 'tfidf', 'heading'], keep=False)
+tfidf_df
 
 # %%
 # n_gram_length
@@ -135,19 +126,55 @@ conn.close()
 df_mess
 
 # %%
-df = pd.concat([
-    df_calculated_tfidf, 
-    tfidf_title_text_df])
+# df = pd.concat([
+#     df_calculated_tfidf, 
+#     tfidf_title_text_df])
 
-duplicates = df_calculated_tfidf[
-    df_calculated_tfidf.duplicated(
-        subset=['xkcd_id', 'token', 'tfidf', 'heading'], 
+# df = tfidf_df
+
+duplicates = df[
+    df.duplicated(
+        subset=['xkcd_id', 'token', 'heading'], 
         keep=False)]
 print(duplicates)
 
-# 2822
 # %%
-tfidf_df.columns
+# Dupes in source data
+df = xkcd_explanations_df
+duplicates = df[
+    df.duplicated(
+        subset=['xkcd_id', 'heading', 'tag_id', 'text'], 
+        keep=False)]
+print(duplicates)
+
+# %%
+import sqlite3
+import unicodedata
+
+def normalize_string(s):
+    if pd.isna(s):
+        return s
+    s = str(s).strip()
+    return unicodedata.normalize("NFC", s)
+
+key_cols = ['xkcd_id', 'token', 'tfidf']
+
+conn = sqlite3.connect(db_path)
+existing = pd.read_sql(f"SELECT {','.join(key_cols)} FROM XKCD_EXPLAINED_TFIDF", conn)
+conn.close()
+
+df = tfidf_df.copy()
+
+for c in key_cols:
+    df[c] = df[c].apply(normalize_string)
+    existing[c] = existing[c].apply(normalize_string)
+
+overlap = df.merge(existing, on=key_cols, how="inner")
+
+print("Conflicting rows (already exist in DB):")
+print(overlap)
+
+
 # %%
 import sqlite3
 conn = sqlite3.connect(db_path)
@@ -157,7 +184,6 @@ conn.commit()
 cursor.execute("VACUUM")
 conn.close()
 
-
 # %%
 import sqlite3
 conn = sqlite3.connect(db_path)
@@ -166,28 +192,24 @@ conn.close()
 df_calculated_tfidf
 
 # %%
-tfidf_title_text_df
+xkcd_exlanations_df_fucky = xkcd_explanations_df[xkcd_explanations_df['xkcd_id'].isin([1])]
+xkcd_exlanations_df_fucky
 
 # %%
-db_utils.insert_tfidfs_into_db(db_path, tfidf_title_text_df)
-# %%
-stuff = xkcd_explanations_df[
-        ~xkcd_explanations_df["heading"].isin([headings_ignore, "Transcript"])
-    ]
-stuff
-# %%
-n_gram_length = 2
-# Get tfidf for title texts
-tfidf_title_text_df = xkcd_tfidfing.get_tfidf(
-    xkcd_properties_df, 
-    "xkcd_id", 
-    "title_text", 
-    n_gram_length=n_gram_length,
-    split_pattern=split_pattern
-)
-tfidf_title_text_df["heading"] = "title_text"
-db_utils.insert_tfidfs_into_db(db_path, tfidf_title_text_df)
+# Transcripts
+df = xkcd_exlanations_df_fucky[
+    xkcd_exlanations_df_fucky["heading"] == "Transcript"
+]
+text_col = "text"
+tfidf_df_fucky = get_tfidf(
+    df, 
+    doc_id_col="xkcd_id", 
+    text_col=text_col, 
+    n_gram_length=n_gram_length, 
+    split_pattern=split_pattern)
+tfidf_df_fucky['heading'] = "transcript"
+tfidf_df_fucky = tfidf_df_fucky.drop_duplicates(subset=['xkcd_id', 'token', 'tfidf'], keep=False)
+print(f"\nFound {len(tfidf_df_fucky)} tf-idf scores for transcripts with n_gram_length {n_gram_length}")
+tfidf_df_fucky
 
-# %%
-tfidf_title_text_df
 # %%
