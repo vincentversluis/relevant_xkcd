@@ -3,7 +3,7 @@ line-length = 88
 target-version = "py311"
 preview = true
 select = ["E", "F", "I", "B", "UP", "C90", "N", "D", "PL", "RUF"]
-ignore = ["D203", "D213"]
+ignore = ["D203", "D213", "D417"]
 
 [tool.ruff.format]
 quote-style = "double"

@@ -2,11 +2,12 @@
 # A getter for explain xkcd data, aimed at delivering parsed data to the user
 
 # %% IMPORTS
-import requests
-from bs4 import BeautifulSoup
 import re
+
 import arrow
+from bs4 import BeautifulSoup
 from dateutil import parser
+import requests
 
 
 # %% FUNCTIONS
@@ -35,7 +36,6 @@ def get_explain_xkcd(xkcd_id: int) -> dict:
     date_button_text_re = re.search(pattern, date_button_text)
     date = date_button_text_re.group("date")
     date = parser.parse(date)
-    # date = arrow.get(date, 'MMMM D, YYYY').format('YYYY-MM-DD')
     date = arrow.get(date).format("YYYY-MM-DD")
 
     # Find title text, navigate to actual text and extract
@@ -52,6 +52,7 @@ def get_explain_xkcd(xkcd_id: int) -> dict:
         "body": {},  # Fill in by looping through tags
     }
 
+    # Find explanation text
     explanation_text = soup.find_all("div", {"class": "mw-parser-output"})[0]
 
     # Loop through text to find headings and add contents from tag text
