@@ -1,5 +1,5 @@
 # %% HEADER
-# A getter for explain xkcd data, aimed at delivering parsed data to the user
+# A getter for explain xkcd data from explainxkcd.com, aimed at delivering parsed data to the user.
 
 # %% IMPORTS
 import re

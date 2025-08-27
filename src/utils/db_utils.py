@@ -1,6 +1,5 @@
 # %% HEADER
-# Some functions to interact with the database
-# TODO: Docstrings
+# Some functions to interact with the database.
 
 # %% IMPORTS
 from collections import namedtuple

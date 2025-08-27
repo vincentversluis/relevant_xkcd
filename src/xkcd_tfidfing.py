@@ -1,5 +1,5 @@
 # %% HEADER
-# TODO: Rework comments to nicer language
+# Functions for calculating tf-idf scores for xkcds.
 
 # %% IMPORTS
 from functools import cache

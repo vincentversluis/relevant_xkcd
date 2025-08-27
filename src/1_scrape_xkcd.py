@@ -1,15 +1,16 @@
 # %% HEADER
-# Get explain xkcd data
-# TODO: Code some general inspections
-# TODO: Check fill rate for each explanation, title and title text
+# Acquire the data from explainxkcd.com and store it in the database. This script is aimed at dealing
+# with possible throttling of the site. Define which xkcds to scrape in the INPUTS section and go.
 
 # %% IMPORTS
-from xkcd_scraping import get_explain_xkcd
-from utils import db_utils
 from time import sleep
-from tqdm import tqdm
+
 import pandas as pd
 from requests.exceptions import HTTPError
+from tqdm import tqdm
+
+from utils import db_utils
+from xkcd_scraping import get_explain_xkcd
 
 # %% INPUTS
 xkcd_id_start = 1

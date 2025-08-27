@@ -1,6 +1,6 @@
 # %% HEADER
-#
-#
+# Functions that recommend xkcds based on a given text, making the assumption that 'there is always a
+# relevant xkcd'.
 
 # %% IMPORTS
 import gensim.downloader as api
@@ -15,18 +15,17 @@ from functools import cache
 import sqlite3
 import pandas as pd
 from typing import Optional
-from xkcd_tfidfing import get_preprocessed_tokens, get_up_to_ngrams
-from xkcd_recommending import recommend_xkcd
+from xkcd_tfidfing import get_preprocessed_tokens, get_up_to_n_grams
 from utils import db_utils
 from utils import utils
 
 # %% INPUTS
 db_path = "../data/relevant_xkcd.db"
 
-n_gram_max_length = 3
+# n_gram_max_length = 3
 
 # n_gram_weights = {1: 1, 2: 1.5, 3: 2}
-n_gram_weights = "length"
+# n_gram_weights = "length"
 
 # # Build split pattern with punctuation and word boundaries for stopwords
 # stopwords_pattern = (
@@ -43,7 +42,19 @@ word2vec = api.load("word2vec-google-news-300")
 
 # %% FUNCTIONS
 @cache
-def get_similar_words(word, topn=10):
+def get_similar_words(word: str, topn: int = 10) -> list[str]:
+    """Get a list of similar words for a given word, including the similarity score.
+    
+    This uses the word2vec model to get the most similar words to the given word. This can handle more
+    than just words, it does numbers, ngrams and even some punctuation.
+
+    Args:
+        word (str): The word to get similar words for.
+        topn (int, optional): The number of similar words to return. Defaults to 10.
+
+    Returns:
+        list: The most similar words to the given word.
+    """    
     try:
         similar_words = word2vec.most_similar(word, topn=topn)
     except KeyError:  # Word is not in the model
@@ -51,7 +62,16 @@ def get_similar_words(word, topn=10):
     return similar_words
 
 
-def get_similar_words_for_list(words, topn=10):
+def get_similar_words_for_list(words: list[str], topn: int = 10) -> list[str]:
+    """Get a list of similar words for a list of words.
+
+    Args:
+        words (list[str]): The words to get similar words for.
+        topn (int, optional): The number of similar words to return. Defaults to 10.
+
+    Returns:
+        list[str]: The most similar words to the given word.
+    """    
     similar_words = []
     for word in words:
         similar_words.append({word: get_similar_words(word, topn=topn)})
@@ -68,6 +88,27 @@ def recommend_xkcd(
     number_to_words: bool = True,
     number_to_words_threshold: int = 20,
 ) -> pd.DataFrame:
+    """Recommend xkcds based on a given text.
+    
+    This uses the tf-idf scores of the text to recommend xkcds. It also takes into account the weights of
+    the different parts of the explanation, such as title, transcript, explanation and title text. Several
+    knobs and buttons are available to configure the recommendation process.
+    
+    
+
+    Args:
+        text (str): The text to recommend xkcds for.
+        top_n (int, optional): The number of xkcds to recommend. Defaults to 10.
+        n_gram_max_length (int, optional): The maximum length of n-grams to use. Defaults to 3.
+        n_gram_weights (dict | None, optional): The weighting method to use for n-grams. Defaults to "length". Alternatively, a dictionary can be passed with the length of the n-gram as the key and the weight as the value.
+        split_pattern (str | None, optional): The split pattern to use for the text. Defaults to English stopwords and punctuation.
+        heading_weights (dict | None, optional): The weights of the different parts of the explanation. Defaults to None. Alternatively, a dictionary can be passed with the heading as the key and the weight as the value.
+        number_to_words (bool, optional): If numbers should be interpreted as words. Defaults to True.
+        number_to_words_threshold (int, optional): The highest number to convert to written out numbers. Defaults to 20.
+
+    Returns:
+        pd.DataFrame: The recommended xkcds.
+    """    
     if split_pattern is None:
         stopwords_pattern = (
             r"\b(?:" + "|".join(map(re.escape, stopwords.words("english"))) + r")\b"

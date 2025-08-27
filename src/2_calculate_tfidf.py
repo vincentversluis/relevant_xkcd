@@ -1,11 +1,7 @@
 # %% HEADER
-# Calculate TF-IDF vectors for each heading and store in database
+# Calculate TF-IDF vectors for each heading and store in database.
+# This might take quite a while - bigrams took a full day to run.
 
-# https://www.learndatasci.com/glossary/tf-idf-term-frequency-inverse-document-frequency/#:~:text=Term%20Frequency%3A%20TF%20of%20a,of%20words%20in%20the%20document.&text=Inverse%20Document%20Frequency%3A%20IDF%20of,corpus%20that%20contain%20the%20term.
-
-# This might take quite a while - bigrams took a full day to run
-
-# TODO: Rework comments to nicer language
 
 # %% IMPORTS
 import re
