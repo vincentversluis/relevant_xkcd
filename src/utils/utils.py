@@ -26,7 +26,7 @@ def get_ngram_weight(
 
     Returns:
         float: _description_
-    """    
+    """
     if n_gram_weights is None:
         return 1
     elif n_gram_weights == "length":
@@ -51,7 +51,7 @@ def sub_number_to_words(text: str, numerical_threshold: int = 20) -> str:
 
     Returns:
         str: The written out number
-    """    
+    """
     num_words = {
         str(i): inflect_engine.number_to_words(i)
         for i in range(1, numerical_threshold + 1)
