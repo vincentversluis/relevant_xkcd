@@ -25,7 +25,17 @@ from xkcd_recommending import recommend_xkcd
 
 text = "Choosing a password that is both strong and easy to remember"
 
-recommend_xkcd(text, top_n=5)
+recommend_xkcd(
+    text=text,
+    top_n=5,  # The number of xkcds to recommend
+    n_gram_max_length=3,  # The maximum length of n-grams to use
+    n_gram_weights="length",  # The weighting method to use for n-grams
+    split_pattern=None,  # Use the default English stopwords and punctuation as split pattern
+    heading_weights=None,  # Use the default weights for the different parts of the explanation
+    number_to_words=True,  # Interpret numbers (like 20 )as words (like twenty)
+    number_to_words_threshold=20,  # The highest number to convert to written out numbers
+    )
+
 ```
 
 The result is a dataframe that looks like this:
@@ -38,7 +48,7 @@ The result is a dataframe that looks like this:
 0.76 | 792 - Password Reuse | https://www.explainxkcd.com/wiki/index.php/792
 0.76 | 2176 - How Hacking Works | https://www.explainxkcd.com/wiki/index.php/2176
 
-For some more examples, see the `/example/recommond_xkcd.ipynb` notebook.
+For some more examples, see the `/example/recommond_xkcd.ipynb` notebook and read the docstrings in the functions.
 
 ## Contributing
 
