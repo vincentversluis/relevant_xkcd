@@ -12,13 +12,17 @@ cd relevant_xkcd
 pip install -r requirements.txt
 ```
 
+As this project stores data in a local database, I recommend just using the scripts provided, instead of running this as an installed package.
+
 ## Usage
 
-Use the scripts `/src/1_scrape_xkcd.py` and `/src/2_calculate_tfidf.py` to scrape and calculate tf-idf scores for xkcds. This will fill a database with the relevant rawish data and precalculated tf-idf scores. The `xkcd_recommending.recommend_xkcd` function uses this database to recommend xkcds that are relevant to a given text.
+Use the scripts [`/src/1_scrape_xkcd.py`](/src/1_scrape_xkcd.py) to scrape [explainxkcd.com](https://www.explainxkcd.com/wiki/index.php/Main_Page) and [`/src/2_calculate_tfidf.py`](/src/2_calculate_tfidf.py) to precalculate the necessary [tf-idf](https://en.wikipedia.org/wiki/Tf%E2%80%93idf) vectors. These were made with the [VS Code Jupyter code cells](https://code.visualstudio.com/docs/python/jupyter-support-py), so use VS Code with the Jupyter extension for best results.
+
+After setting up the database, use the [`recommend_xkcd`](/src/xkcd_recommending.py#70) function from the [`xkcd_recommending`](/src/xkcd_recommending.py) module to query xkcds that are relevant to a given text.
 
 ## Example
 
-Use the `recommend_xkcd` function to get xkcds that are relevant to a given text:
+Use the [`recommend_xkcd`](/src/xkcd_recommending.py#70) function to get xkcds that are relevant to a given text. Check out its docstring for more information.
 
 ```python
 from xkcd_recommending import recommend_xkcd
@@ -32,7 +36,7 @@ recommend_xkcd(
     n_gram_weights="length",  # The weighting method to use for n-grams
     split_pattern=None,  # Use the default English stopwords and punctuation as split pattern
     heading_weights=None,  # Use the default weights for the different parts of the explanation
-    number_to_words=True,  # Interpret numbers (like 20 )as words (like twenty)
+    number_to_words=True,  # Interpret numbers (like 20) as words (like twenty)
     number_to_words_threshold=20,  # The highest number to convert to written out numbers
     )
 
@@ -48,7 +52,21 @@ The result is a dataframe that looks like this:
 0.76 | 792 - Password Reuse | https://www.explainxkcd.com/wiki/index.php/792
 0.76 | 2176 - How Hacking Works | https://www.explainxkcd.com/wiki/index.php/2176
 
-For some more examples, see the `/example/recommond_xkcd.ipynb` notebook and read the docstrings in the functions.
+For some more examples, see the [`/example/recommend_xkcd.ipynb`](/example/recommend_xkcd.ipynb) notebook. (Best viewed in an IDE or in a browser.)
+
+## How this works
+
+In short:
+
+The main function [`recommend_xkcd`](/src/xkcd_recommending.py#70) uses a [tf-idf](https://en.wikipedia.org/wiki/Tf%E2%80%93idf) vectorisation of xkcd descriptions as found on [explainxkcd.com](https://www.explainxkcd.com/wiki/index.php/Main_Page) and attempts to find the nearest semantic equivalent of a given text.
+
+In long:
+
+1. Descriptions of xkcds are scraped from explainxkcd.com.
+2. The descriptions are chopped into various size n-gram tokens and the tf-idf scores of each token are calculated. The results are stored in a database.
+3. The user defined text (what they want to find an xkcd or) is also chopped into n-gram tokens and their semantic equivalents are found using [Google's word2vec](https://code.google.com/archive/p/word2vec/) model, along with their numerical similarity.
+4. The database is queried for all tokens and their equivalents, to find in which xkcd descriptions they occur.
+5. The weighted product of each returned token is calculated and summed per xkcd to find a score for each xkcd. The highest scoring xkcds are assumed to be the best matches.
 
 ## Contributing
 
