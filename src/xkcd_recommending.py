@@ -3,21 +3,15 @@
 # relevant xkcd'.
 
 # %% IMPORTS
-import gensim.downloader as api
-from gensim.models import KeyedVectors
-from nltk.corpus import stopwords
-import re
-import string
-from itertools import pairwise
-from time import sleep
-import arrow
 from functools import cache
-import sqlite3
+import re
+
+import gensim.downloader as api
+from nltk.corpus import stopwords
 import pandas as pd
-from typing import Optional
-from xkcd_tfidfing import get_preprocessed_tokens, get_up_to_n_grams
-from utils import db_utils
-from utils import utils
+
+from utils import db_utils, utils
+from xkcd_tfidfing import get_up_to_n_grams
 
 # %% INPUTS
 db_path = "../data/relevant_xkcd.db"
@@ -78,12 +72,40 @@ def recommend_xkcd(
     number_to_words_threshold: int = 20,
 ) -> pd.DataFrame:
     """Recommend xkcds based on a given text.
+    
+    This makes use of a tf-idf vectorisation of xkcd descriptions as found on explainxkcd.com. The queried
+    text is also vectorised, along with its semantic equivalent. The resulting query tokens are looked 
+    up in the xkcd descriptions and a weighted sum of their tf-idf scores results in a best match.
 
-    This uses the tf-idf scores of the text to recommend xkcds. It also takes into account the weights of
-    the different parts of the explanation, such as title, transcript, explanation and title text. Several
-    knobs and buttons are available to configure the recommendation process.
+    Several knobs and buttons are available for configuring:
+    
+    n_gram_max_length
+    xkcd descriptions and query are split into n-grams to characterise the text. Shorter n-grams capture
+    simple terminology, longer n-grams capture more complex concepts, but sometimes leads to fuzzier
+    matches.
+    
+    n_gram_weights
+    The weighting method for n-grams. By default, the length specifies its weight, with longer n-grams
+    weighing more being seen as more relevant. Alternatively, pass a dictionary with the length of the
+    n-gram as the key and the weight as the value.
 
-
+    split_pattern
+    The split pattern to use for the text. By default, English stopwords and punctuation are used reflecting
+    the way explainxkcd.com has been processed. Alternatively, pass a custom split pattern in the form of
+    a regular expression.
+    
+    heading_weights
+    The weights of the different parts of the explanation as found on explainxkcd.com. By default, the 
+    title, title text, transcript and explanation are weighted 1 : 0.1 : 1 : 0.5 respectively, which 
+    seems to work emperically. Alternatively, pass a dictionary with the heading as the key and the weight
+    as the value.
+    
+    number_to_words
+    If numbers in the query should be interpreted as words. By default, numbers are converted to written 
+    out numbers, e.g. 20 is converted to twenty.
+    
+    number_to_words_threshold
+    The highest number to convert to written out numbers. By default, 20 is used.
 
     Args:
         text (str): The text to recommend xkcds for.
