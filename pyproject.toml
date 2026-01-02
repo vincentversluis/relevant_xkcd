@@ -10,7 +10,7 @@ quote-style = "double"
 indent-style = "space"
 skip-magic-trailing-comma = false
 docstring-code-format = true
-docstring-code-line-length = 88
+docstring-code-line-length = 100
 
 [tool.ruff.lint.isort]
 known-first-party = ["your_package_name"]
