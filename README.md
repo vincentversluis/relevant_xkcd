@@ -12,7 +12,7 @@ cd relevant_xkcd
 pip install -r requirements.txt
 ```
 
-As this project stores data in a local database, I recommend just using the scripts provided, instead of running this as an installed package.
+As this project stores data in a local database, the repository is not intended to be installed as a package. Instead, clone the repository and use the scripts provided.
 
 ## Usage
 
@@ -44,7 +44,7 @@ recommend_xkcd(
 
 The result is a dataframe that looks like this:
 
-| score | id_title |link
+| score | id_title | link
 |-------|----------|----
 1.40 | 936 - Password Strength | https://www.explainxkcd.com/wiki/index.php/936
 0.89 | 1286 - Encryptic | https://www.explainxkcd.com/wiki/index.php/1286
@@ -64,7 +64,7 @@ In long:
 
 1. Descriptions of xkcds are scraped from explainxkcd.com.
 2. The descriptions are chopped into various size n-gram tokens and the tf-idf scores of each token are calculated. The results are stored in a database.
-3. The user defined text (what they want to find an xkcd or) is also chopped into n-gram tokens and their semantic equivalents are found using [Google's word2vec](https://code.google.com/archive/p/word2vec/) model, along with their numerical similarity.
+3. The user defined text (what they want to find an xkcd for) is also chopped into n-gram tokens and their semantic equivalents are found using [Google's word2vec](https://code.google.com/archive/p/word2vec/) model, along with their numerical similarity.
 4. The database is queried for all tokens and their equivalents, to find in which xkcd descriptions they occur.
 5. The weighted product of each returned token is calculated and summed per xkcd to find a score for each xkcd. The highest scoring xkcds are assumed to be the best matches.
 
